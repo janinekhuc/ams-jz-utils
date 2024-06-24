@@ -1,0 +1,39 @@
+# to locally install run `pip install pre-commit pylint` and `pre-commit install`
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v3.2.0
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+          - id: check-yaml
+          - id: check-added-large-files
+    - repo: https://github.com/pre-commit/mirrors-autopep8
+      rev: 7d14f78
+      hooks:
+          - id: autopep8
+    - repo: https://github.com/codespell-project/codespell
+      rev: v1.16.0
+      hooks:
+          - id: codespell
+            name: codespell
+            description: Checks for common misspellings in text files.
+            entry: codespell --ignore-words readme.md
+            language: python
+            types: [text]
+    - repo: local #remote version does not render imports see: https://stackoverflow.com/questions/61238318/pylint-and-pre-commit-hook-unable-to-import
+      hooks:
+          - id: pylint
+            name: pylint
+            entry: pylint
+            language: system
+            types: [python]
+            require_serial: true
+            args:
+                [
+                    "--disable=line-too-long, fixme",
+                    --include-naming-hint=y,
+                    "--argument-rgx=^[a-z][a-z0-9]*((_[a-z0-9]+)*)?$",
+                    "--variable-rgx=^[a-z][a-z0-9]*((_[a-z0-9]+)*)?$",
+                ]
