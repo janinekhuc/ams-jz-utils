@@ -1,4 +1,5 @@
 """Module to create SCD2."""
+import pytz
 import pyspark.sql as p
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
