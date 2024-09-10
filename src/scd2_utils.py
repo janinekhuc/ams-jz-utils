@@ -34,8 +34,9 @@ def add_hash_key_column(df: p.DataFrame, cols_to_use: t.List[str], col_name: str
     p.DataFrame
         PySpark dataframe with hash key column.
     """
-    hash_function = sha2(concat_ws("||", *df.select(cols_to_use).columns), 256)
-    df = df.withColumn(col_name, lit(hash_function))
+    hash_function = F.sha2(F.concat_ws(
+        "||", *df.select(cols_to_use).columns), 256)
+    df = df.withColumn(col_name, F.lit(hash_function))
     return df
 
 
@@ -57,6 +58,42 @@ def _check_required_fields(fields_to_check: list, fields_expected: list):
         fields_expected, reverse_checked_fields)
     assert all(
         checked_fields), f"Missing field(s) are {missing_fields}. Fields to check contains {fields_to_check}"
+
+
+def check_elements_in_list(elements_to_check: list, elements_expected: list) -> t.List[bool]:
+    """Check if a number of expected elements are in a list as expected.
+
+    Parameters
+    ----------
+    elements_to_check : list
+        List of elements to check.
+    elements_expected : list
+        List of elements to be expected to be in.
+
+    Returns
+    -------
+    t.List[bool]
+        Boolean list of length of `elements_expected` to indicate if element in elements_to_check.
+    """
+    return [elem in elements_to_check for elem in elements_expected]
+
+
+def filter_list_by_boolean(list_to_filter: list, boolean_list: t.List[bool]) -> list:
+    """Filter list by boolean list.
+
+    Parameters
+    ----------
+    list_to_filter : list
+        List to filter on.
+    boolean_list : t.List[bool]
+        Boolean mask to filter out list.
+
+    Returns
+    -------
+    list
+        Filtered list.
+    """
+    return [elem for (elem, truth) in zip(list_to_filter, boolean_list) if truth]
 
 
 def create_meta_columns(df: p.DataFrame, id_cols: t.List[str], data_cols: t.List[str] = None):
