@@ -1,4 +1,4 @@
-"""Module to create SCD2."""
+"""Module to create SCD2. Works based on assuming a full load."""
 import pytz
 import pyspark.sql as p
 import pyspark.sql.functions as F
@@ -190,6 +190,22 @@ def get_valid_rows(df: p.DataFrame):
         Pyspark Dataframe with valid rows.
     """
     return df.filter(F.col(META_DT_VALID_TO_COL) == VALID_DATE)
+
+
+def get_closed_rows(df: p.DataFrame):
+    """Get closed rows.
+
+    Parameters
+    ----------
+    df : p.DataFrame
+        Pyspark Dataframe.
+
+    Returns
+    -------
+    p.DataFrame
+        Pyspark Dataframe with closed rows.
+    """
+    return df.filter(F.col(META_DT_VALID_TO_COL) != VALID_DATE)
 
 
 def get_new_rows(df: p.DataFrame, valid_rows: p.DataFrame,):
@@ -397,19 +413,19 @@ def get_changed_rows(df: p.DataFrame, valid_rows: p.DataFrame, id_cols: t.List[s
             .union(rows_changed_closed.select(sorted(rows_changed_closed.columns))))
 
 
-def apply_scd2(df_src: p.DataFrame, tgt_delta_location: str,
+def apply_scd2(df_src: p.DataFrame, df_tgt: p.DataFrame,
                id_cols: t.List[str], hash_data_cols: t.List[str],
                date: str = None, create_meta_valid_cols: bool = False):
     """Apply slowly changing dimensions 2. Creates meta columns (meta_id_hash, meta_data_hash, meta_dt_valid_from,
     meta_dt_valid_to), gets valid, new, unchanged, deleted, and changed rows from a Pyspark Dataframe and compares
-    it with the target table in a given delta location.
+    it with the target table.
 
     Parameters
     ----------
     df_src : p.DataFrame
-        New Pyspark Dataframe to use to compare to tgt_delta_location.
-    tgt_delta_location : str
-        Delta location of target table to compare to.
+        New Pyspark Dataframe to use to compare to df_tgt.
+    df_tgt : p.DataFrame
+        Previous target table. Initial load will be done by inserting an empty df_target.
     id_cols : t.List[str]
         List of id columns to join on.
     hash_data_cols : t.List[str]
@@ -432,10 +448,8 @@ def apply_scd2(df_src: p.DataFrame, tgt_delta_location: str,
     if create_meta_valid_cols:
         df_src = add_meta_valid_cols(df_src, from_date=date)
 
-    if DeltaTable.isDeltaTable(spark_session(), tgt_delta_location):
-        df_tgt = (spark_session().read.format(
-            'delta').load(tgt_delta_location))
-
+    if df_tgt.count() > 1:
+        closed_rows = get_closed_rows(df_tgt)
         valid_rows = get_valid_rows(df_tgt)
         new_rows = get_new_rows(df_src, valid_rows)
         unchanged_rows = get_unchanged_rows(df_src, valid_rows, id_cols)
@@ -447,8 +461,8 @@ def apply_scd2(df_src: p.DataFrame, tgt_delta_location: str,
             .union(new_rows.select(sorted(new_rows.columns)))
             .union(deleted_rows.select(sorted(deleted_rows.columns)))
             .union(changed_rows.select(sorted(changed_rows.columns)))
+            .union(closed_rows.select(sorted(closed_rows.columns)))
         )
     else:
-      # in case table does not exist
         staged_updates = df_src
     return staged_updates
